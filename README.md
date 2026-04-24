@@ -55,12 +55,17 @@ th, td {
   display:none;
   z-index:1000;
 }
+
 .dropdown-item { padding:10px; cursor:pointer; }
 .dropdown-item:hover { background:#eee; }
 
-.photo-preview img {
-  max-width:100%;
-  max-height:150px;
+.action-btn {
+  background:#c62828;
+  color:white;
+  border:none;
+  padding:6px 10px;
+  border-radius:4px;
+  cursor:pointer;
 }
 </style>
 </head>
@@ -75,30 +80,30 @@ th, td {
 
 <label>Spedition</label>
 <div class="dropdown">
-  <input id="spedition" placeholder="Spedition wählen oder eingeben">
+  <input id="spedition">
   <div id="list" class="dropdown-list"></div>
 </div>
 
 <label>E2 IN</label>
-<input type="number" inputmode="numeric" pattern="[0-9]*" id="e2_in">
+<input type="number" inputmode="numeric" id="e2_in">
 
 <label>E2 OUT</label>
-<input type="number" inputmode="numeric" pattern="[0-9]*" id="e2_out">
+<input type="number" inputmode="numeric" id="e2_out">
 
 <label>H1 IN</label>
-<input type="number" inputmode="numeric" pattern="[0-9]*" id="h1_in">
+<input type="number" inputmode="numeric" id="h1_in">
 
 <label>H1 OUT</label>
-<input type="number" inputmode="numeric" pattern="[0-9]*" id="h1_out">
+<input type="number" inputmode="numeric" id="h1_out">
 
 <label>EPAL IN</label>
-<input type="number" inputmode="numeric" pattern="[0-9]*" id="epal_in">
+<input type="number" inputmode="numeric" id="epal_in">
 
 <label>EPAL OUT</label>
-<input type="number" inputmode="numeric" pattern="[0-9]*" id="epal_out">
+<input type="number" inputmode="numeric" id="epal_out">
 
 <label>Einweg</label>
-<input type="number" inputmode="numeric" pattern="[0-9]*" id="einweg">
+<input type="number" inputmode="numeric" id="einweg">
 
 <label>Bemerkung</label>
 <input id="bemerkung">
@@ -106,11 +111,7 @@ th, td {
 <label>Foto</label>
 <input type="file" id="foto" accept="image/*" capture="environment">
 
-<div class="photo-preview" id="previewBox" style="display:none;">
-<img id="preview">
-</div>
-
-<button onclick="addEntry()">➕ Eintrag speichern</button>
+<button onclick="addEntry()">➕ Speichern</button>
 <button onclick="exportExcel()">📦 Excel</button>
 
 <table>
@@ -127,11 +128,11 @@ th, td {
 <th>Einweg</th>
 <th>Bemerkung</th>
 <th>Foto</th>
+<th>Aktion</th>
 </tr>
 </thead>
 <tbody id="table"></tbody>
 </table>
-
 </div>
 
 <script>
@@ -145,11 +146,9 @@ let currentPhoto=null;
 const input=document.getElementById("spedition");
 const list=document.getElementById("list");
 
-function setHeute(){
 document.getElementById("datum").value=new Date().toISOString().split("T")[0];
-}
-setHeute();
 
+// Dropdown
 function renderList(f=""){
 list.innerHTML="";
 listData.filter(x=>x.toLowerCase().includes(f.toLowerCase()))
@@ -177,56 +176,16 @@ localStorage.setItem("sped",JSON.stringify(listData));
 }
 }
 
-document.getElementById("foto").addEventListener("change",(e)=>{
-const f=e.target.files[0];
-if(!f)return;
-currentPhoto=f;
-
-const r=new FileReader();
-r.onload=(ev)=>{
-document.getElementById("preview").src=ev.target.result;
-document.getElementById("previewBox").style.display="block";
-};
-r.readAsDataURL(f);
-});
-
-const felder=["datum","spedition","e2_in","e2_out","h1_in","h1_out","epal_in","epal_out","einweg","bemerkung"];
-
-felder.forEach((id,i)=>{
-document.getElementById(id).addEventListener("keydown",(e)=>{
-if(e.key==="Enter"){
-e.preventDefault();
-if(id==="spedition") addSped(input.value);
-
-if(felder[i+1]){
-document.getElementById(felder[i+1]).focus();
-}else{
-document.getElementById("foto").focus();
-}
-}
-});
-});
-
+// Eintrag speichern
 function addEntry(){
-const d=document.getElementById("datum").value;
 const s=input.value;
-
 if(!s)return alert("Spedition fehlt");
 
 addSped(s);
 
-let foto="";
-if(currentPhoto){
-foto=Date.now()+".jpg";
-const u=URL.createObjectURL(currentPhoto);
-const a=document.createElement("a");
-a.href=u;
-a.download=foto;
-a.click();
-}
-
 data.push({
-datum:d,spedition:s,
+datum:datum.value,
+spedition:s,
 e2_in:+e2_in.value||0,
 e2_out:+e2_out.value||0,
 h1_in:+h1_in.value||0,
@@ -234,24 +193,30 @@ h1_out:+h1_out.value||0,
 epal_in:+epal_in.value||0,
 epal_out:+epal_out.value||0,
 einweg:+einweg.value||0,
-bemerkung:bemerkung.value,
-foto
+bemerkung:bemerkung.value
 });
 
 localStorage.setItem("leergut",JSON.stringify(data));
 render();
 
 document.querySelectorAll("input").forEach(i=>{if(i.type!=="date")i.value=""});
-currentPhoto=null;
-previewBox.style.display="none";
-setHeute();
 input.focus();
 }
 
+// 🔴 NEU: Löschen Funktion
+function del(index){
+if(confirm("Eintrag löschen?")){
+data.splice(index,1);
+localStorage.setItem("leergut",JSON.stringify(data));
+render();
+}
+}
+
+// Render Tabelle
 function render(){
 const t=document.getElementById("table");
 t.innerHTML="";
-data.forEach(r=>{
+data.forEach((r,i)=>{
 t.innerHTML+=`
 <tr>
 <td>${r.datum}</td>
@@ -264,24 +229,16 @@ t.innerHTML+=`
 <td>${r.epal_out}</td>
 <td>${r.einweg}</td>
 <td>${r.bemerkung}</td>
-<td>${r.foto}</td>
+<td>${r.foto||""}</td>
+<td><button class="action-btn" onclick="del(${i})">X</button></td>
 </tr>`;
 });
 }
 
 function exportExcel(){
-const sums={};
-data.forEach(r=>{
-if(!sums[r.spedition]) sums[r.spedition]={e2:0,h1:0,epal:0};
-sums[r.spedition].e2+=r.e2_in;
-sums[r.spedition].h1+=r.h1_in;
-sums[r.spedition].epal+=r.epal_in;
-});
-
 const ws=XLSX.utils.json_to_sheet(data);
 const wb=XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb,ws,"Leergut");
-
 XLSX.writeFile(wb,"Leergut.xlsx");
 }
 
